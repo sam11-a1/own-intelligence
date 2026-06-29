@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Own Intelligence</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --card:#11151d; --border:rgba(255,255,255,0.1);
+    --text:#f2efe6; --muted:#9aa1ad; --brand:#f97316; --brand-dark:#ea580c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); padding:30px 6%; }
+  h1{ margin-bottom:4px; }
+  h3{ margin-bottom:14px; }
+  .muted{ color:var(--muted); font-size:0.9rem; margin-bottom:24px; }
+  .grid{ display:grid; grid-template-columns: 1fr 1.3fr; gap:24px; }
+  @media (max-width:800px){ .grid{ grid-template-columns:1fr; } }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+  input, textarea, select{
+    width:100%; padding:10px 12px; margin-bottom:10px; border-radius:8px;
+    border:1px solid var(--border); background:transparent; color:var(--text); font-size:0.9rem;
+  }
+  button{
+    background:var(--brand); color:#fff; border:none; padding:10px 18px;
+    border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem; width:100%;
+  }
+  button:hover{ background:var(--brand-dark); }
+  button.small{ width:auto; padding:6px 12px; font-size:0.8rem; }
+  button.secondary{ background:transparent; border:1px solid var(--border); color:var(--text); }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .comp-item{ padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px; cursor:pointer; }
+  .comp-item.active{ border-color:var(--brand); background:rgba(249,115,22,0.08); }
+  .reg-row{ border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:8px; font-size:0.88rem; }
+  .reg-controls{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; align-items:center; }
+  .reg-controls input, .reg-controls select{ width:auto; margin:0; padding:6px 8px; }
+  .hidden{ display:none !important; }
+  .lock-screen{ max-width:380px; margin:80px auto; text-align:center; }
+  .q-builder-item{ border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; position:relative; }
+  .q-builder-item .removeQ{ position:absolute; top:8px; right:8px; background:transparent; border:none; color:#f87171; width:auto; padding:2px 6px; font-size:0.85rem; cursor:pointer; }
+  .type-toggle{ display:flex; gap:8px; margin-bottom:10px; }
+  .type-toggle button{ flex:1; background:transparent; border:1px solid var(--border); }
+  .type-toggle button.active{ background:var(--brand); border-color:var(--brand); }
+  table{ width:100%; border-collapse:collapse; font-size:0.85rem; margin-top:10px; }
+  th, td{ text-align:left; padding:7px 8px; border-bottom:1px solid var(--border); }
+  th{ color:var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="lockScreen" class="lock-screen card">
+  <h2 style="margin-bottom:14px;">Admin Login</h2>
+  <input type="email" id="adminEmail" placeholder="Admin email">
+  <input type="password" id="adminPassword" placeholder="Password">
+  <button id="adminLoginBtn">Login</button>
+  <p id="adminError" class="muted hidden" style="color:#f87171; margin-top:10px;"></p>
+</div>
+
+<div id="adminPanel" class="hidden">
+  <h1>Admin Dashboard</h1>
+  <p class="muted">Create competitions, build quizzes, and publish results. Only you should have this login.</p>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h3>Create a competition</h3>
+        <div class="type-toggle">
+          <button id="typeQuizBtn" class="active">In-platform Quiz</button>
+          <button id="typeExternalBtn">Hackathon / External link</button>
+        </div>
+
+        <input type="text" id="cTitle" placeholder="Title (e.g. Code Sprint 2026)">
+        <textarea id="cDesc" placeholder="Description" rows="2"></textarea>
+        <input type="text" id="cCategory" placeholder="Category (e.g. Quiz, Hackathon)">
+        <div class="row2">
+          <input type="number" id="cEntryFee" placeholder="Entry fee (₹)">
+          <input type="number" id="cPrize" placeholder="1st prize (₹)">
+        </div>
+        <div class="row2">
+          <input type="number" id="cPrize2" placeholder="2nd prize (₹) — optional">
+          <input type="number" id="cPrize3" placeholder="3rd prize (₹) — optional">
+        </div>
+
+        <div id="quizFields">
+          <input type="number" id="cTimeLimit" placeholder="Time limit (minutes)">
+          <h4 style="margin:14px 0 8px;">Questions</h4>
+          <div id="questionBuilder"></div>
+          <button type="button" id="addQuestionBtn" class="secondary" style="margin-bottom:14px;">+ Add Question</button>
+        </div>
+
+        <div id="externalFields" class="hidden">
+          <input type="url" id="cLink" placeholder="Link students see after paying (Google Form / Meet link)">
+        </div>
+
+        <button id="createCompBtn">Publish competition</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h3>Your competitions</h3>
+        <div id="compListAdmin"><p class="muted">Loading…</p></div>
+      </div>
+
+      <div class="card">
+        <h3 id="regTitle">Registrations</h3>
+        <div id="regListAdmin"><p class="muted">Select a competition to view registrations.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // Once you've created your admin login, find your UID in
+  // Firebase Console -> Authentication -> Users, and paste it below.
+  const ADMIN_UID = "PASTE_YOUR_ADMIN_UID_HERE";
+
+  document.getElementById('adminLoginBtn').onclick = async () => {
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const errEl = document.getElementById('adminError');
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    }
+  };
+
+  auth.onAuthStateChanged((user) => {
+    if (user && (ADMIN_UID === "PASTE_YOUR_ADMIN_UID_HERE" || user.uid === ADMIN_UID)) {
+      document.getElementById('lockScreen').classList.add('hidden');
+      document.getElementById('adminPanel').classList.remove('hidden');
+      loadCompetitionsAdmin();
+    } else {
+      document.getElementById('lockScreen').classList.remove('hidden');
+      document.getElementById('adminPanel').classList.add('hidden');
+      if (user) auth.signOut();
+    }
+  });
+
+  // ---- Competition type toggle ----
+  let compType = 'quiz';
+  document.getElementById('typeQuizBtn').onclick = () => {
+    compType = 'quiz';
+    document.getElementById('typeQuizBtn').classList.add('active');
+    document.getElementById('typeExternalBtn').classList.remove('active');
+    document.getElementById('quizFields').classList.remove('hidden');
+    document.getElementById('externalFields').classList.add('hidden');
+  };
+  document.getElementById('typeExternalBtn').onclick = () => {
+    compType = 'external';
+    document.getElementById('typeExternalBtn').classList.add('active');
+    document.getElementById('typeQuizBtn').classList.remove('active');
+    document.getElementById('externalFields').classList.remove('hidden');
+    document.getElementById('quizFields').classList.add('hidden');
+  };
+
+  // ---- Question builder ----
+  let questionCount = 0;
+  document.getElementById('addQuestionBtn').onclick = () => addQuestionBlock();
+  function addQuestionBlock() {
+    const id = questionCount++;
+    const div = document.createElement('div');
+    div.className = 'q-builder-item';
+    div.dataset.qid = id;
+    div.innerHTML = `
+      <button type="button" class="removeQ">✕</button>
+      <input type="text" class="qText" placeholder="Question text">
+      <input type="text" class="qOpt" placeholder="Option A">
+      <input type="text" class="qOpt" placeholder="Option B">
+      <input type="text" class="qOpt" placeholder="Option C">
+      <input type="text" class="qOpt" placeholder="Option D">
+      <select class="qCorrect">
+        <option value="0">Correct answer: A</option>
+        <option value="1">Correct answer: B</option>
+        <option value="2">Correct answer: C</option>
+        <option value="3">Correct answer: D</option>
+      </select>
+    `;
+    div.querySelector('.removeQ').onclick = () => div.remove();
+    document.getElementById('questionBuilder').appendChild(div);
+  }
+  addQuestionBlock(); // start with one
+
+  // ---- Create competition ----
+  document.getElementById('createCompBtn').onclick = async () => {
+    const title = document.getElementById('cTitle').value.trim();
+    if (!title) { alert('Title is required'); return; }
+
+    const data = {
+      title,
+      description: document.getElementById('cDesc').value.trim(),
+      category: document.getElementById('cCategory').value.trim(),
+      entryFee: Number(document.getElementById('cEntryFee').value) || 0,
+      prizeMoney: Number(document.getElementById('cPrize').value) || 0,
+      secondPrize: Number(document.getElementById('cPrize2').value) || 0,
+      thirdPrize: Number(document.getElementById('cPrize3').value) || 0,
+      type: compType,
+      participantCount: 0,
+      resultsPublished: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (compType === 'quiz') {
+      const questions = [];
+      document.querySelectorAll('#questionBuilder .q-builder-item').forEach(block => {
+        const text = block.querySelector('.qText').value.trim();
+        const opts = Array.from(block.querySelectorAll('.qOpt')).map(i => i.value.trim());
+        const correctIndex = Number(block.querySelector('.qCorrect').value);
+        if (text && opts.every(o => o)) {
+          questions.push({ text, options: opts, correctIndex });
+        }
+      });
+      if (questions.length === 0) { alert('Add at least one complete question.'); return; }
+      data.quizQuestions = questions;
+      data.timeLimitMinutes = Number(document.getElementById('cTimeLimit').value) || 10;
+    } else {
+      data.competitionLink = document.getElementById('cLink').value.trim();
+    }
+
+    await db.collection('competitions').add(data);
+
+    ['cTitle','cDesc','cCategory','cEntryFee','cPrize','cPrize2','cPrize3','cTimeLimit','cLink']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    document.getElementById('questionBuilder').innerHTML = '';
+    questionCount = 0;
+    addQuestionBlock();
+    loadCompetitionsAdmin();
+    alert('Competition published ✓');
+  };
+
+  async function loadCompetitionsAdmin() {
+    const listEl = document.getElementById('compListAdmin');
+    const snap = await db.collection('competitions').orderBy('createdAt', 'desc').get();
+    if (snap.empty) { listEl.innerHTML = '<p class="muted">No competitions yet.</p>'; return; }
+    listEl.innerHTML = '';
+    snap.docs.forEach(docSnap => {
+      const comp = docSnap.data();
+      const el = document.createElement('div');
+      el.className = 'comp-item';
+      el.innerHTML = `<b>${comp.title}</b> <span class="muted">(${comp.type})</span><br>
+        <span class="muted">${comp.participantCount || 0} registered ${comp.resultsPublished ? '· results published ✅' : ''}</span>`;
+      el.onclick = () => openRegistrations(docSnap.id, comp);
+      listEl.appendChild(el);
+    });
+  }
+
+  function fmtTime(seconds) {
+    if (seconds == null) return '—';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  async function openRegistrations(compId, comp) {
+    document.getElementById('regTitle').textContent = 'Registrations — ' + comp.title;
+    const regListEl = document.getElementById('regListAdmin');
+    const snap = await db.collection('competitions').doc(compId).collection('registrations').get();
+
+    if (snap.empty) { regListEl.innerHTML = '<p class="muted">No registrations yet.</p>'; return; }
+
+    if (comp.type === 'quiz') {
+      const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const completed = rows.filter(r => r.quizCompleted);
+      completed.sort((a, b) => (b.score - a.score) || (a.timeTakenSeconds - b.timeTakenSeconds));
+      const notCompleted = rows.filter(r => !r.quizCompleted);
+
+      let html = `<p class="muted" style="margin-bottom:8px;">${completed.length} of ${rows.length} have completed the quiz.</p>`;
+      html += '<table><thead><tr><th>Rank</th><th>Student</th><th>Score</th><th>Time</th></tr></thead><tbody>';
+      completed.forEach((r, i) => {
+        html += `<tr><td>#${i + 1}</td><td>${r.name}</td><td>${r.score}/${r.totalQuestions}</td><td>${fmtTime(r.timeTakenSeconds)}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      if (notCompleted.length) {
+        html += `<p class="muted" style="margin-top:10px; font-size:0.8rem;">Not yet attempted: ${notCompleted.map(r => r.name).join(', ')}</p>`;
+      }
+
+      if (comp.resultsPublished) {
+        html += `<p style="margin-top:14px; color:#22c55e; font-weight:600;">✅ Results published — prizes credited automatically.</p>`;
+      } else {
+        html += `<button id="publishBtn" style="margin-top:14px;">Close Quiz &amp; Publish Results</button>`;
+      }
+      regListEl.innerHTML = html;
+
+      if (!comp.resultsPublished) {
+        document.getElementById('publishBtn').onclick = async () => {
+          if (!confirm('This will rank everyone by marks (then time) and credit prize money automatically. Continue?')) return;
+          await publishResults(compId, comp, completed);
+          openRegistrations(compId, { ...comp, resultsPublished: true });
+          loadCompetitionsAdmin();
+        };
+      }
+    } else {
+      // external/hackathon — manual winner selection, same as before
+      regListEl.innerHTML = '';
+      snap.docs.forEach(docSnap => {
+        const reg = docSnap.data();
+        const uid = docSnap.id;
+        const row = document.createElement('div');
+        row.className = 'reg-row';
+        if (reg.result) {
+          row.innerHTML = `<b>${reg.name}</b> (${reg.email})<br>✅ ${reg.result} — ₹${reg.prizeAmount || 0}`;
+        } else {
+          row.innerHTML = `
+            <b>${reg.name}</b> (${reg.email})
+            <div class="reg-controls">
+              <select class="resultSel">
+                <option>Winner</option><option>Runner-up</option><option>Participant</option>
+              </select>
+              <input type="number" class="prizeInput" placeholder="Prize ₹" style="width:90px;">
+              <button class="small announceBtn">Announce</button>
+            </div>`;
+          row.querySelector('.announceBtn').onclick = async () => {
+            const result = row.querySelector('.resultSel').value;
+            const prizeAmount = Number(row.querySelector('.prizeInput').value) || 0;
+            await db.collection('competitions').doc(compId).collection('registrations').doc(uid).update({ result, prizeAmount });
+            if (prizeAmount > 0) {
+              await db.collection('users').doc(uid).set(
+                { totalPrize: firebase.firestore.FieldValue.increment(prizeAmount) }, { merge: true }
+              );
+            }
+            openRegistrations(compId, comp);
+          };
+        }
+        regListEl.appendChild(row);
+      });
+    }
+  }
+
+  // Ranks everyone by score (desc) then time (asc), assigns rank + prize, credits user profiles.
+  async function publishResults(compId, comp, rankedCompleted) {
+    const prizesByRank = [comp.prizeMoney || 0, comp.secondPrize || 0, comp.thirdPrize || 0];
+    const batchUpdates = [];
+
+    for (let i = 0; i < rankedCompleted.length; i++) {
+      const r = rankedCompleted[i];
+      const rank = i + 1;
+      const prizeAmount = prizesByRank[i] || 0;
+      const result = rank <= 3 && prizeAmount > 0 ? `Rank ${rank}` : 'Participant';
+
+      batchUpdates.push(
+        db.collection('competitions').doc(compId).collection('registrations').doc(r.id).update({
+          rank, result, prizeAmount
+        })
+      );
+      if (prizeAmount > 0) {
+        batchUpdates.push(
+          db.collection('users').doc(r.id).set(
+            { totalPrize: firebase.firestore.FieldValue.increment(prizeAmount) }, { merge: true }
+          )
+        );
+      }
+    }
+    await Promise.all(batchUpdates);
+    await db.collection('competitions').doc(compId).update({ resultsPublished: true });
+  }
+</script>
+</body>
+</html>

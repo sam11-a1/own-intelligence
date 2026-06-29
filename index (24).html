@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Own Intelligence — Student Competitions</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --card:#11151d; --border:rgba(255,255,255,0.1);
+    --text:#f2efe6; --muted:#9aa1ad; --brand:#f97316; --brand-dark:#ea580c;
+    --green:#22c55e; --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ font-family:var(--font); background:var(--bg); color:var(--text); }
+  a{ color:inherit; text-decoration:none; }
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 6%; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:rgba(11,14,20,0.9); backdrop-filter:blur(8px); z-index:10;
+  }
+  .logo{ font-weight:800; font-size:1.3rem; }
+  .logo span{ color:var(--brand); }
+  #authArea{ display:flex; gap:10px; align-items:center; }
+  button, .btn{
+    background:var(--brand); color:#fff; border:none; padding:10px 18px;
+    border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;
+  }
+  button:hover{ background:var(--brand-dark); }
+  button.secondary{ background:transparent; border:1px solid var(--border); color:var(--text); }
+  button:disabled{ opacity:0.6; cursor:not-allowed; }
+
+  .hero{ text-align:center; padding:60px 6% 40px; }
+  .hero h1{ font-size:2.2rem; margin-bottom:10px; }
+  .hero p{ color:var(--muted); max-width:520px; margin:0 auto; }
+
+  .container{ max-width:900px; margin:0 auto; padding:0 6% 60px; }
+  .section-title{ font-size:1.3rem; margin:30px 0 16px; }
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:18px; margin-bottom:14px;
+  }
+  .comp-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+  .comp-title{ font-weight:700; font-size:1.05rem; }
+  .comp-desc{ color:var(--muted); font-size:0.9rem; margin-top:4px; }
+  .tag{ font-size:0.75rem; background:rgba(249,115,22,0.15); color:var(--brand); padding:3px 8px; border-radius:20px; }
+  .meta{ display:flex; gap:18px; font-size:0.85rem; color:var(--muted); margin-top:10px; flex-wrap:wrap; }
+  .unlocked-box{
+    margin-top:12px; padding:12px; border-radius:8px; background:rgba(34,197,94,0.1);
+    border:1px solid rgba(34,197,94,0.3); font-size:0.9rem;
+  }
+  .pending-box{
+    margin-top:12px; padding:12px; border-radius:8px; background:rgba(249,115,22,0.08);
+    border:1px solid rgba(249,115,22,0.25); font-size:0.9rem;
+  }
+
+  .auth-box{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:24px; max-width:380px; margin:60px auto;
+  }
+  .auth-box input{
+    width:100%; padding:11px 12px; margin-bottom:10px; border-radius:8px;
+    border:1px solid var(--border); background:transparent; color:var(--text); font-size:0.95rem;
+  }
+  .auth-box h2{ margin-bottom:16px; }
+  .switch-link{ color:var(--brand); cursor:pointer; font-size:0.9rem; display:block; margin-top:10px; text-align:center; }
+  .error{ color:#f87171; font-size:0.85rem; margin-bottom:8px; }
+  .hidden{ display:none !important; }
+  .muted{ color:var(--muted); }
+  #profileBar{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+    background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin:24px 0;
+  }
+  #profileBar .earn{ color:var(--green); font-weight:700; font-size:1.2rem; }
+
+  table{ width:100%; border-collapse:collapse; font-size:0.88rem; }
+  th, td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  th{ color:var(--muted); font-weight:600; }
+  tr.me{ background:rgba(249,115,22,0.08); }
+  .rank-1{ color:#facc15; font-weight:700; }
+  .rank-2{ color:#cbd5e1; font-weight:700; }
+  .rank-3{ color:#fb923c; font-weight:700; }
+
+  #quizOverlay{
+    position:fixed; inset:0; background:var(--bg); z-index:50; overflow-y:auto; padding:30px 6%;
+  }
+  #quizTimer{
+    position:sticky; top:0; background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:14px 18px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; z-index:5;
+  }
+  #quizTimer .time{ font-weight:800; font-size:1.2rem; color:var(--brand); }
+  .q-block{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .q-text{ font-weight:600; margin-bottom:10px; }
+  .opt-row{ display:flex; align-items:center; gap:8px; padding:7px 0; cursor:pointer; }
+  .opt-row input{ width:auto; margin:0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Own<span>Intelligence</span></div>
+  <div id="authArea">
+    <span id="userEmail" class="muted hidden"></span>
+    <button id="logoutBtn" class="secondary hidden">Logout</button>
+    <button id="showLoginBtn" class="secondary">Login</button>
+  </div>
+</header>
+
+<div id="loggedOutView">
+  <div class="hero">
+    <h1>Compete. Win. Get Paid.</h1>
+    <p>Join quizzes &amp; hackathons hosted by Own Intelligence. Pay the entry fee, take part, and win real prize money — ranked transparently by marks and time.</p>
+  </div>
+
+  <div class="auth-box" id="authBox">
+    <div id="loginForm">
+      <h2>Login</h2>
+      <div class="error hidden" id="loginError"></div>
+      <input type="email" id="loginEmail" placeholder="Email">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button id="loginSubmit" style="width:100%">Login</button>
+      <span class="switch-link" id="toSignup">New here? Create an account</span>
+    </div>
+    <div id="signupForm" class="hidden">
+      <h2>Create account</h2>
+      <div class="error hidden" id="signupError"></div>
+      <input type="text" id="signupName" placeholder="Full name">
+      <input type="email" id="signupEmail" placeholder="Email">
+      <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+      <button id="signupSubmit" style="width:100%">Sign up</button>
+      <span class="switch-link" id="toLogin">Already have an account? Login</span>
+    </div>
+  </div>
+</div>
+
+<div id="loggedInView" class="hidden">
+  <div class="container">
+    <div id="profileBar">
+      <div>
+        <p class="muted" style="font-size:0.85rem;">Welcome back</p>
+        <p style="font-weight:700;" id="welcomeName">—</p>
+      </div>
+      <div style="text-align:right;">
+        <p class="muted" style="font-size:0.85rem;">Total prize won</p>
+        <p class="earn" id="totalPrize">₹0</p>
+      </div>
+    </div>
+
+    <h2 class="section-title">Available Competitions</h2>
+    <div id="compList"><p class="muted">Loading…</p></div>
+  </div>
+</div>
+
+<div id="quizOverlay" class="hidden">
+  <div id="quizTimer">
+    <span id="quizCompName" style="font-weight:700;"></span>
+    <span class="time" id="quizTimeLeft">--:--</span>
+  </div>
+  <div id="quizQuestionsArea"></div>
+  <button id="quizSubmitBtn" style="margin-top:10px;">Submit Quiz</button>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  const loggedOutView = document.getElementById('loggedOutView');
+  const loggedInView = document.getElementById('loggedInView');
+  const userEmailEl = document.getElementById('userEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const showLoginBtn = document.getElementById('showLoginBtn');
+
+  document.getElementById('toSignup').onclick = () => {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('signupForm').classList.remove('hidden');
+  };
+  document.getElementById('toLogin').onclick = () => {
+    document.getElementById('signupForm').classList.add('hidden');
+    document.getElementById('loginForm').classList.remove('hidden');
+  };
+  showLoginBtn.onclick = () => window.scrollTo({top: 300, behavior:'smooth'});
+
+  document.getElementById('signupSubmit').onclick = async () => {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const errEl = document.getElementById('signupError');
+    errEl.classList.add('hidden');
+    if (!name || !email || password.length < 6) {
+      errEl.textContent = 'Please fill all fields (password min 6 characters).';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    try {
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await cred.user.updateProfile({ displayName: name });
+      await db.collection('users').doc(cred.user.uid).set({
+        name, email, totalPrize: 0, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    }
+  };
+
+  document.getElementById('loginSubmit').onclick = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+    } catch (e) {
+      errEl.textContent = 'Invalid email or password.';
+      errEl.classList.remove('hidden');
+    }
+  };
+
+  logoutBtn.onclick = () => auth.signOut();
+
+  let currentUserName = '';
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      loggedOutView.classList.add('hidden');
+      loggedInView.classList.remove('hidden');
+      userEmailEl.textContent = user.email;
+      userEmailEl.classList.remove('hidden');
+      logoutBtn.classList.remove('hidden');
+      showLoginBtn.classList.add('hidden');
+
+      const profileSnap = await db.collection('users').doc(user.uid).get();
+      const profile = profileSnap.exists ? profileSnap.data() : {};
+      currentUserName = profile.name || user.email;
+      document.getElementById('welcomeName').textContent = currentUserName;
+      document.getElementById('totalPrize').textContent = '₹' + (profile.totalPrize || 0);
+
+      loadCompetitions(user.uid);
+    } else {
+      loggedOutView.classList.remove('hidden');
+      loggedInView.classList.add('hidden');
+      userEmailEl.classList.add('hidden');
+      logoutBtn.classList.add('hidden');
+      showLoginBtn.classList.remove('hidden');
+    }
+  });
+
+  function fmtTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
+  async function loadCompetitions(uid) {
+    const listEl = document.getElementById('compList');
+    const snap = await db.collection('competitions').orderBy('createdAt', 'desc').get();
+    if (snap.empty) {
+      listEl.innerHTML = '<p class="muted">No competitions published yet. Check back soon!</p>';
+      return;
+    }
+    listEl.innerHTML = '';
+    for (const docSnap of snap.docs) {
+      const comp = docSnap.data();
+      const compId = docSnap.id;
+      const regRef = db.collection('competitions').doc(compId).collection('registrations').doc(uid);
+      const regSnap = await regRef.get();
+      const isRegistered = regSnap.exists;
+      const reg = isRegistered ? regSnap.data() : null;
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="comp-top">
+          <div>
+            <span class="tag">${comp.category || 'Competition'}</span>
+            <p class="comp-title">${comp.title}</p>
+            <p class="comp-desc">${comp.description || ''}</p>
+          </div>
+        </div>
+        <div class="meta">
+          <span>💰 Prize: ₹${comp.prizeMoney || 0}</span>
+          <span>🎫 Entry fee: ₹${comp.entryFee || 0}</span>
+          ${comp.type === 'quiz' ? `<span>⏱ Time limit: ${comp.timeLimitMinutes || 0} min</span>` : ''}
+        </div>
+        <div class="action" style="margin-top:14px;"></div>
+        <div class="leaderboard-area" style="margin-top:14px;"></div>
+      `;
+      const actionEl = card.querySelector('.action');
+      const leaderboardEl = card.querySelector('.leaderboard-area');
+
+      if (!isRegistered) {
+        const btn = document.createElement('button');
+        btn.textContent = `Pay ₹${comp.entryFee || 0} & Unlock`;
+        btn.onclick = async () => {
+          btn.disabled = true;
+          btn.textContent = 'Processing payment…';
+          setTimeout(async () => {
+            await regRef.set({
+              name: currentUserName,
+              email: auth.currentUser.email,
+              paymentStatus: 'success',
+              registeredAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await db.collection('competitions').doc(compId).update({
+              participantCount: firebase.firestore.FieldValue.increment(1)
+            });
+            loadCompetitions(uid);
+          }, 1000);
+        };
+        actionEl.appendChild(btn);
+      } else if (comp.type === 'quiz') {
+        if (!reg.quizCompleted) {
+          const btn = document.createElement('button');
+          btn.textContent = 'Start Quiz';
+          btn.onclick = () => startQuiz(compId, comp, regRef);
+          actionEl.appendChild(btn);
+          const note = document.createElement('p');
+          note.className = 'muted';
+          note.style.fontSize = '0.8rem';
+          note.style.marginTop = '6px';
+          note.textContent = `Once started, you'll have ${comp.timeLimitMinutes} minutes. Timer cannot be paused.`;
+          actionEl.appendChild(note);
+        } else if (!comp.resultsPublished) {
+          actionEl.innerHTML = `<div class="pending-box">✅ Quiz submitted — Score: <b>${reg.score}/${reg.totalQuestions}</b>, Time taken: <b>${fmtTime(reg.timeTakenSeconds)}</b>. Final ranking &amp; prizes will be published once the quiz closes for everyone.</div>`;
+        } else {
+          actionEl.innerHTML = `<div class="unlocked-box">🏁 Results are out — see the leaderboard below.</div>`;
+          await renderLeaderboard(leaderboardEl, compId, uid);
+        }
+      } else {
+        if (reg.result) {
+          actionEl.innerHTML = `<div class="unlocked-box">✅ Result: <b>${reg.result}</b> — Prize: ₹${reg.prizeAmount || 0}</div>`;
+        } else {
+          actionEl.innerHTML = `<div class="unlocked-box">✅ Unlocked — you're registered. ${comp.competitionLink ? `<a href="${comp.competitionLink}" target="_blank" style="color:var(--brand); font-weight:600;">Open competition →</a>` : 'Details will be shared soon.'}</div>`;
+        }
+      }
+      listEl.appendChild(card);
+    }
+  }
+
+  async function renderLeaderboard(container, compId, myUid) {
+    const snap = await db.collection('competitions').doc(compId).collection('registrations')
+      .where('quizCompleted', '==', true).get();
+    const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => (b.score - a.score) || (a.timeTakenSeconds - b.timeTakenSeconds));
+
+    let html = '<table><thead><tr><th>Rank</th><th>Student</th><th>Score</th><th>Time</th><th>Prize</th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
+      const rank = i + 1;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+      html += `<tr class="${r.id === myUid ? 'me' : ''}">
+        <td class="${rankClass}">#${rank}</td>
+        <td>${r.name}${r.id === myUid ? ' (You)' : ''}</td>
+        <td>${r.score}/${r.totalQuestions}</td>
+        <td>${fmtTime(r.timeTakenSeconds)}</td>
+        <td>${r.prizeAmount ? '₹' + r.prizeAmount : '—'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  let quizTimerInterval = null;
+
+  function startQuiz(compId, comp, regRef) {
+    const overlay = document.getElementById('quizOverlay');
+    const area = document.getElementById('quizQuestionsArea');
+    document.getElementById('quizCompName').textContent = comp.title;
+    overlay.classList.remove('hidden');
+
+    area.innerHTML = '';
+    (comp.quizQuestions || []).forEach((q, qi) => {
+      const block = document.createElement('div');
+      block.className = 'q-block';
+      let optsHtml = '';
+      q.options.forEach((opt, oi) => {
+        optsHtml += `
+          <label class="opt-row">
+            <input type="radio" name="q${qi}" value="${oi}">
+            <span>${opt}</span>
+          </label>`;
+      });
+      block.innerHTML = `<div class="q-text">${qi + 1}. ${q.text}</div>${optsHtml}`;
+      area.appendChild(block);
+    });
+
+    const startTime = Date.now();
+    let secondsLeft = (comp.timeLimitMinutes || 10) * 60;
+    const timeLeftEl = document.getElementById('quizTimeLeft');
+    timeLeftEl.textContent = fmtTime(secondsLeft);
+
+    clearInterval(quizTimerInterval);
+    quizTimerInterval = setInterval(() => {
+      secondsLeft--;
+      timeLeftEl.textContent = fmtTime(Math.max(secondsLeft, 0));
+      if (secondsLeft <= 0) {
+        clearInterval(quizTimerInterval);
+        submitQuiz(compId, comp, regRef, startTime, true);
+      }
+    }, 1000);
+
+    document.getElementById('quizSubmitBtn').onclick = () => {
+      clearInterval(quizTimerInterval);
+      submitQuiz(compId, comp, regRef, startTime, false);
+    };
+  }
+
+  async function submitQuiz(compId, comp, regRef, startTime, autoSubmitted) {
+    const questions = comp.quizQuestions || [];
+    let score = 0;
+    questions.forEach((q, qi) => {
+      const selected = document.querySelector(`input[name="q${qi}"]:checked`);
+      if (selected && Number(selected.value) === q.correctIndex) score++;
+    });
+    const timeTakenSeconds = Math.round((Date.now() - startTime) / 1000);
+
+    await regRef.update({
+      quizCompleted: true,
+      score,
+      totalQuestions: questions.length,
+      timeTakenSeconds,
+      autoSubmitted,
+      submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    document.getElementById('quizOverlay').classList.add('hidden');
+    alert(`Quiz submitted!\nScore: ${score}/${questions.length}\nTime taken: ${fmtTime(timeTakenSeconds)}\n\nFinal ranking and prizes will be published once results are out.`);
+    loadCompetitions(auth.currentUser.uid);
+  }
+</script>
+</body>
+</html>
