@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Own Intelligence — Compete & Win</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --bg: #050508;
+  --surface: #0d0d14;
+  --surface2: #13131e;
+  --border: rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.15);
+  --text: #f0f0f5;
+  --muted: #6b7280;
+  --muted2: #9ca3af;
+  --brand: #7c3aed;
+  --brand2: #a855f7;
+  --brand-glow: rgba(124,58,237,0.35);
+  --green: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 5%;
+  height: 64px;
+  background: rgba(5,5,8,0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-size: 1.1rem; font-weight: 800; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 30%, var(--brand2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.nav-right { display: flex; gap: 10px; align-items: center; }
+#navUserInfo { font-size: 0.82rem; color: var(--muted2); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 20px; border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600; font-size: 0.88rem;
+  border: none; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+  box-shadow: 0 0 20px var(--brand-glow);
+}
+.btn-primary:hover { background: #6d28d9; transform: translateY(-1px); box-shadow: 0 0 30px var(--brand-glow); }
+.btn-ghost {
+  background: transparent; color: var(--muted2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+.btn-sm { padding: 7px 14px; font-size: 0.82rem; }
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+  padding: 100px 5% 60px;
+  overflow: hidden;
+}
+.hero-glow {
+  position: absolute;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%);
+  top: 50%; left: 50%; transform: translate(-50%, -60%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(124,58,237,0.1);
+  border: 1px solid rgba(124,58,237,0.3);
+  color: var(--brand2); padding: 6px 14px; border-radius: 100px;
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
+  margin-bottom: 28px;
+}
+.badge-dot { width: 6px; height: 6px; background: var(--brand2); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.hero h1 {
+  font-size: clamp(2.4rem, 6vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1.05;
+  margin-bottom: 20px;
+  max-width: 800px;
+}
+.hero h1 .grad {
+  background: linear-gradient(135deg, var(--brand2), #ec4899, var(--amber));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero p {
+  font-size: 1.05rem; color: var(--muted2);
+  max-width: 520px; line-height: 1.65; margin-bottom: 36px;
+}
+.hero-cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+.hero-stats {
+  display: flex; gap: 40px; margin-top: 60px;
+  padding-top: 40px; border-top: 1px solid var(--border);
+  flex-wrap: wrap; justify-content: center;
+}
+.stat { text-align: center; }
+.stat-num { font-size: 1.8rem; font-weight: 800; letter-spacing: -1px; }
+.stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+/* ── SECTIONS ── */
+.section { padding: 80px 5%; max-width: 1100px; margin: 0 auto; }
+.section-header { text-align: center; margin-bottom: 48px; }
+.section-tag {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--brand2); margin-bottom: 12px;
+}
+.section-title {
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+  font-weight: 800; letter-spacing: -1px;
+}
+
+/* ── EVENTS GRID ── */
+.events-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+.event-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px;
+  transition: all 0.25s;
+  position: relative; overflow: hidden;
+}
+.event-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--brand), var(--brand2));
+  opacity: 0; transition: opacity 0.25s;
+}
+.event-card:hover { border-color: var(--border-hover); transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+.event-card:hover::before { opacity: 1; }
+
+.event-category {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--brand2);
+  background: rgba(168,85,247,0.1); padding: 4px 10px; border-radius: 100px;
+  margin-bottom: 14px;
+}
+.event-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 8px; line-height: 1.3; }
+.event-desc { font-size: 0.88rem; color: var(--muted2); line-height: 1.55; margin-bottom: 18px; }
+.event-meta {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 18px;
+}
+.meta-chip {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px;
+}
+.meta-chip .meta-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.meta-chip .meta-val { font-size: 0.95rem; font-weight: 700; margin-top: 2px; }
+.meta-chip .meta-val.prize { color: var(--green); }
+.meta-chip .meta-val.fee { color: var(--amber); }
+
+.event-footer { display: flex; align-items: center; justify-content: space-between; }
+.winners-badge {
+  font-size: 0.78rem; color: var(--muted2);
+  display: flex; align-items: center; gap: 5px;
+}
+.status-pill {
+  font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 100px;
+}
+.status-open { background: rgba(16,185,129,0.12); color: var(--green); }
+.status-closed { background: rgba(107,114,128,0.12); color: var(--muted2); }
+
+/* ── REGISTERED STATE ── */
+.registered-box {
+  margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+  background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2);
+  font-size: 0.85rem; color: var(--green);
+  display: flex; align-items: center; gap: 8px;
+}
+.winner-box {
+  margin-top: 14px; padding: 14px; border-radius: 10px;
+  background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+}
+.winner-box .winner-title { font-weight: 700; color: var(--amber); margin-bottom: 4px; }
+.winner-box .winner-prize { font-size: 1.1rem; font-weight: 800; color: var(--text); }
+.winner-box .winner-sub { font-size: 0.78rem; color: var(--muted2); margin-top: 4px; }
+
+/* ── HOW IT WORKS ── */
+.steps-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2px; background: var(--border); border-radius: 16px; overflow: hidden;
+}
+.step {
+  background: var(--surface); padding: 32px 28px;
+}
+.step-num {
+  font-size: 0.75rem; font-weight: 700; color: var(--brand2);
+  letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px;
+}
+.step-icon { font-size: 1.8rem; margin-bottom: 12px; }
+.step-title { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+.step-desc { font-size: 0.85rem; color: var(--muted2); line-height: 1.6; }
+
+/* ── AUTH MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(5,5,8,0.85); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 36px;
+  width: 100%; max-width: 420px;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted2); width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1rem; line-height: 1;
+}
+.modal-close:hover { color: var(--text); }
+.modal-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+.modal-sub { font-size: 0.85rem; color: var(--muted2); margin-bottom: 26px; }
+
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-size: 0.78rem; font-weight: 600;
+  color: var(--muted2); margin-bottom: 7px; letter-spacing: 0.02em;
+}
+.field input {
+  width: 100%; padding: 12px 14px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 0.92rem;
+  transition: border-color 0.2s;
+}
+.field input:focus { outline: none; border-color: var(--brand); }
+.field input::placeholder { color: var(--muted); }
+.field-hint { font-size: 0.75rem; color: var(--muted); margin-top: 5px; }
+
+.modal-submit { width: 100%; margin-top: 6px; padding: 13px; font-size: 0.95rem; }
+.modal-switch {
+  text-align: center; margin-top: 18px;
+  font-size: 0.85rem; color: var(--muted2);
+}
+.modal-switch span { color: var(--brand2); cursor: pointer; font-weight: 600; }
+.modal-switch span:hover { text-decoration: underline; }
+.form-error {
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+  color: #fca5a5; padding: 10px 14px; border-radius: 8px;
+  font-size: 0.83rem; margin-bottom: 14px;
+}
+
+/* ── PAYMENT MODAL ── */
+.pay-modal .pay-event-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; }
+.pay-summary {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 20px;
+}
+.pay-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 0.88rem; }
+.pay-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 6px; }
+.pay-row .label { color: var(--muted2); }
+.pay-row .val { font-weight: 600; }
+.pay-row.total .val { color: var(--green); font-size: 1.1rem; }
+.pay-note { font-size: 0.8rem; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 36px 5%;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+footer strong { color: var(--muted2); }
+
+/* ── UTILS ── */
+.hidden { display: none !important; }
+.text-green { color: var(--green); }
+.text-amber { color: var(--amber); }
+.loading { text-align: center; color: var(--muted); padding: 40px; }
+
+#loggedInNav { display: flex; align-items: center; gap: 14px; }
+
+@media (max-width: 640px) {
+  .hero h1 { letter-spacing: -1px; }
+  .hero-stats { gap: 24px; }
+  .modal { padding: 26px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">OwnIntelligence</div>
+  <div class="nav-right">
+    <div id="loggedOutNav">
+      <button class="btn btn-ghost btn-sm" onclick="openModal('login')">Log in</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('signup')">Sign up free</button>
+    </div>
+    <div id="loggedInNav" class="hidden">
+      <span id="navUserInfo"></span>
+      <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Log out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge"><span class="badge-dot"></span> Now Live — Join & Win</div>
+  <h1>Where <span class="grad">Talent</span><br>Meets Opportunity</h1>
+  <p>Join exclusive competitions, pay a small entry fee, and compete for real prize money. Transparent, fair, and fully online.</p>
+  <div class="hero-cta">
+    <button class="btn btn-primary" onclick="document.getElementById('eventsSection').scrollIntoView({behavior:'smooth'})">
+      Browse Events →
+    </button>
+    <button class="btn btn-ghost" onclick="openModal('signup')">Create Account</button>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num" style="background:linear-gradient(135deg,var(--brand2),#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent">100%</div><div class="stat-label">Transparent ranking</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--green)">₹Real</div><div class="stat-label">Cash prizes</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--amber)">Fair</div><div class="stat-label">Organized by us</div></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-tag">How it works</div>
+    <h2 class="section-title">Simple. Transparent. Fair.</h2>
+  </div>
+  <div class="steps-grid">
+    <div class="step">
+      <div class="step-num">Step 01</div>
+      <div class="step-icon">🎯</div>
+      <div class="step-title">Browse Events</div>
+      <div class="step-desc">Find quizzes, hackathons, and challenges posted by Own Intelligence.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 02</div>
+      <div class="step-icon">💳</div>
+      <div class="step-title">Pay & Register</div>
+      <div class="step-desc">Pay the entry fee to secure your spot. Seats are limited per event.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 03</div>
+      <div class="step-icon">⚡</div>
+      <div class="step-title">Compete</div>
+      <div class="step-desc">Participate in the event and give your best performance.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">Step 04</div>
+      <div class="step-icon">🏆</div>
+      <div class="step-title">Win Prizes</div>
+      <div class="step-desc">Winners are announced and prize money is sent directly to your payment number.</div>
+    </div>
+  </div>
+</div>
+
+<!-- EVENTS -->
+<div class="section" id="eventsSection">
+  <div class="section-header">
+    <div class="section-tag">Live & Upcoming</div>
+    <h2 class="section-title">Events</h2>
+  </div>
+  <div id="eventsGrid" class="events-grid">
+    <div class="loading">Loading events…</div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <strong>OwnIntelligence</strong> — All events are organized and managed by Own Intelligence.<br>
+  Prize money is transferred directly to your registered payment number.
+</footer>
+
+<!-- AUTH MODAL -->
+<div id="authModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <!-- LOGIN -->
+    <div id="loginPane">
+      <div class="modal-title">Welcome back</div>
+      <div class="modal-sub">Log in to your account to join events.</div>
+      <div id="loginError" class="form-error hidden"></div>
+      <div class="field"><label>Email address</label><input type="email" id="loginEmail" placeholder="you@email.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••"></div>
+      <button class="btn btn-primary modal-submit" id="loginBtn" onclick="handleLogin()">Log in</button>
+      <div class="modal-switch">Don't have an account? <span onclick="switchPane('signup')">Sign up</span></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signupPane" class="hidden">
+      <div class="modal-title">Create account</div>
+      <div class="modal-sub">Join Own Intelligence — compete and win prizes.</div>
+      <div id="signupError" class="form-error hidden"></div>
+      <div class="field"><label>Full name</label><input type="text" id="signupName" placeholder="Your full name"></div>
+      <div class="field"><label>Email address</label><input type="email" id="signupEmail" placeholder="you@email.com"></div>
+      <div class="field">
+        <label>Phone number</label>
+        <input type="tel" id="signupPhone" placeholder="10-digit mobile number">
+        <div class="field-hint">⚠️ This number will be used to return prize money to you — make sure it's correct.</div>
+      </div>
+      <div class="field"><label>Password</label><input type="password" id="signupPassword" placeholder="Minimum 6 characters"></div>
+      <button class="btn btn-primary modal-submit" id="signupBtn" onclick="handleSignup()">Create account</button>
+      <div class="modal-switch">Already have an account? <span onclick="switchPane('login')">Log in</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="payModal" class="modal-overlay hidden">
+  <div class="modal pay-modal">
+    <button class="modal-close" onclick="closePayModal()">✕</button>
+    <div class="modal-title">Join Event</div>
+    <div class="pay-event-name" id="payEventName"></div>
+    <div class="pay-summary">
+      <div class="pay-row"><span class="label">Event</span><span class="val" id="payEventTitle"></span></div>
+      <div class="pay-row"><span class="label">Entry fee</span><span class="val text-amber" id="payFeeDisplay"></span></div>
+      <div class="pay-row"><span class="label">Prize pool</span><span class="val text-green" id="payPrizeDisplay"></span></div>
+      <div class="pay-row total"><span class="label">You pay</span><span class="val" id="payTotalDisplay"></span></div>
+    </div>
+    <div class="pay-note">
+      💡 Prize money will be transferred directly to your registered phone number (<strong id="payUserPhone"></strong>). Make sure it's the number you use for UPI/PhonePe/Paytm.
+    </div>
+    <button class="btn btn-primary modal-submit" id="payConfirmBtn" onclick="confirmRegistration()">
+      Confirm & Pay ₹<span id="payBtnAmount"></span>
+    </button>
+    <div style="font-size:0.78rem; color:var(--muted); text-align:center; margin-top:12px;">
+      Payment instructions will be shared by the organizer after confirmation.
+    </div>
+  </div>
+</div>
+
+<script>
+// ── FIREBASE CONFIG ── paste your config here
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ── STATE ──
+let currentUser = null;
+let currentUserData = null;
+let pendingEventId = null;
+let pendingEventData = null;
+
+// ── AUTH STATE ──
+auth.onAuthStateChanged(async user => {
+  currentUser = user;
+  if (user) {
+    document.getElementById('loggedOutNav').classList.add('hidden');
+    document.getElementById('loggedInNav').classList.remove('hidden');
+    const snap = await db.collection('users').doc(user.uid).get();
+    currentUserData = snap.exists ? snap.data() : {};
+    document.getElementById('navUserInfo').textContent = currentUserData.name || user.email;
+    closeModal();
+  } else {
+    document.getElementById('loggedOutNav').classList.remove('hidden');
+    document.getElementById('loggedInNav').classList.add('hidden');
+    currentUserData = null;
+  }
+  loadEvents();
+});
+
+// ── LOAD EVENTS ──
+async function loadEvents() {
+  const grid = document.getElementById('eventsGrid');
+  try {
+    const snap = await db.collection('events').orderBy('createdAt', 'desc').get();
+    if (snap.empty) {
+      grid.innerHTML = `<div class="loading" style="grid-column:1/-1">
+        <div style="font-size:2rem;margin-bottom:12px">🎯</div>
+        <div>No events yet. Check back soon!</div>
+      </div>`;
+      return;
+    }
+    grid.innerHTML = '';
+    for (const docSnap of snap.docs) {
+      const ev = docSnap.data();
+      const evId = docSnap.id;
+      let regData = null;
+      if (currentUser) {
+        const regSnap = await db.collection('events').doc(evId).collection('registrations').doc(currentUser.uid).get();
+        if (regSnap.exists) regData = regSnap.data();
+      }
+      grid.appendChild(buildEventCard(evId, ev, regData));
+    }
+  } catch(e) {
+    grid.innerHTML = `<div class="loading" style="grid-column:1/-1">Unable to load events. Please check back later.</div>`;
+  }
+}
+
+function buildEventCard(evId, ev, regData) {
+  const card = document.createElement('div');
+  card.className = 'event-card';
+  const isOpen = ev.status !== 'closed';
+
+  card.innerHTML = `
+    <div class="event-category">${ev.category || 'Event'}</div>
+    <div class="event-title">${ev.title}</div>
+    <div class="event-desc">${ev.description || ''}</div>
+    <div class="event-meta">
+      <div class="meta-chip">
+        <div class="meta-label">Prize Pool</div>
+        <div class="meta-val prize">₹${(ev.prizeMoney || 0).toLocaleString()}</div>
+      </div>
+      <div class="meta-chip">
+        <div class="meta-label">Entry Fee</div>
+        <div class="meta-val fee">₹${(ev.entryFee || 0).toLocaleString()}</div>
+      </div>
+    </div>
+    <div class="event-footer">
+      <div class="winners-badge">🏆 ${ev.winnerCount || 1} winner${(ev.winnerCount || 1) > 1 ? 's' : ''}</div>
+      <span class="status-pill ${isOpen ? 'status-open' : 'status-closed'}">${isOpen ? '● Open' : '● Closed'}</span>
+    </div>
+    <div class="card-action"></div>
+  `;
+
+  const actionEl = card.querySelector('.card-action');
+
+  if (regData) {
+    if (regData.isWinner) {
+      actionEl.innerHTML = `
+        <div class="winner-box">
+          <div class="winner-title">🎉 You won!</div>
+          <div class="winner-prize">${regData.winnerLabel || 'Winner'} — ₹${(regData.prizeAmount || 0).toLocaleString()}</div>
+          <div class="winner-sub">Prize will be sent to ${regData.phone}</div>
+        </div>`;
+    } else if (ev.resultsOut) {
+      actionEl.innerHTML = `<div class="registered-box">✓ You participated — results are out. Better luck next time!</div>`;
+    } else {
+      actionEl.innerHTML = `<div class="registered-box">✓ Registered — results will be announced soon.</div>`;
+    }
+  } else if (isOpen) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.style.width = '100%';
+    btn.style.marginTop = '16px';
+    btn.textContent = `Register — ₹${(ev.entryFee || 0).toLocaleString()}`;
+    btn.onclick = () => openPayModal(evId, ev);
+    actionEl.appendChild(btn);
+  }
+
+  return card;
+}
+
+// ── AUTH MODAL ──
+function openModal(pane) {
+  switchPane(pane || 'login');
+  document.getElementById('authModal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('authModal').classList.add('hidden'); }
+function switchPane(pane) {
+  document.getElementById('loginPane').classList.toggle('hidden', pane !== 'login');
+  document.getElementById('signupPane').classList.toggle('hidden', pane !== 'signup');
+  document.getElementById('loginError').classList.add('hidden');
+  document.getElementById('signupError').classList.add('hidden');
+}
+
+async function handleLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    errEl.textContent = 'Incorrect email or password. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false; btn.textContent = 'Log in';
+}
+
+async function handleSignup() {
+  const name = document.getElementById('signupName').value.trim();
+  const email = document.getElementById('signupEmail').value.trim();
+  const phone = document.getElementById('signupPhone').value.trim();
+  const pass = document.getElementById('signupPassword').value;
+  const errEl = document.getElementById('signupError');
+  const btn = document.getElementById('signupBtn');
+  errEl.classList.add('hidden');
+
+  if (!name || !email || !phone || !pass) {
+    errEl.textContent = 'All fields are required.'; errEl.classList.remove('hidden'); return;
+  }
+  if (!/^[6-9]\d{9}$/.test(phone)) {
+    errEl.textContent = 'Please enter a valid 10-digit Indian mobile number.'; errEl.classList.remove('hidden'); return;
+  }
+  if (pass.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    await cred.user.updateProfile({ displayName: name });
+    await db.collection('users').doc(cred.user.uid).set({
+      name, email, phone,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) {
+    errEl.textContent = e.code === 'auth/email-already-in-use'
+      ? 'This email is already registered. Please log in.'
+      : 'Could not create account. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false; btn.textContent = 'Create account';
+}
+
+function handleLogout() { auth.signOut(); }
+
+// ── PAY MODAL ──
+function openPayModal(evId, ev) {
+  if (!currentUser) { openModal('login'); return; }
+  pendingEventId = evId;
+  pendingEventData = ev;
+  document.getElementById('payEventName').textContent = ev.title;
+  document.getElementById('payEventTitle').textContent = ev.title;
+  document.getElementById('payFeeDisplay').textContent = '₹' + (ev.entryFee || 0).toLocaleString();
+  document.getElementById('payPrizeDisplay').textContent = '₹' + (ev.prizeMoney || 0).toLocaleString();
+  document.getElementById('payTotalDisplay').textContent = '₹' + (ev.entryFee || 0).toLocaleString();
+  document.getElementById('payBtnAmount').textContent = (ev.entryFee || 0).toLocaleString();
+  document.getElementById('payUserPhone').textContent = currentUserData?.phone || 'your registered number';
+  document.getElementById('payModal').classList.remove('hidden');
+}
+function closePayModal() { document.getElementById('payModal').classList.add('hidden'); }
+
+async function confirmRegistration() {
+  const btn = document.getElementById('payConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Registering…';
+  try {
+    await db.collection('events').doc(pendingEventId).collection('registrations').doc(currentUser.uid).set({
+      name: currentUserData.name,
+      email: currentUser.email,
+      phone: currentUserData.phone,
+      registeredAt: firebase.firestore.FieldValue.serverTimestamp(),
+      paymentStatus: 'pending', // admin confirms after UPI payment
+      isWinner: false
+    });
+    await db.collection('events').doc(pendingEventId).update({
+      participantCount: firebase.firestore.FieldValue.increment(1)
+    });
+    closePayModal();
+    alert(`✅ Registration confirmed!\n\nThe organizer will share payment details with you at ${currentUser.email}.\n\nPrize money will be sent to ${currentUserData.phone} if you win.`);
+    loadEvents();
+  } catch(e) {
+    alert('Something went wrong. Please try again.');
+  }
+  btn.disabled = false; btn.innerHTML = 'Confirm & Pay ₹<span id="payBtnAmount">' + (pendingEventData?.entryFee || 0) + '</span>';
+}
+
+// close modals on overlay click
+document.getElementById('authModal').addEventListener('click', e => { if(e.target === document.getElementById('authModal')) closeModal(); });
+document.getElementById('payModal').addEventListener('click', e => { if(e.target === document.getElementById('payModal')) closePayModal(); });
+</script>
+</body>
+</html>
