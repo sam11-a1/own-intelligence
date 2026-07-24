@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Own Intelligence</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+:root {
+  --bg:#050508; --surface:#0d0d14; --surface2:#13131e;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
+  --text:#f0f0f5; --muted:#6b7280; --muted2:#9ca3af;
+  --brand:#7c3aed; --brand2:#a855f7;
+  --green:#10b981; --amber:#f59e0b; --red:#ef4444;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.hidden{display:none!important;}
+
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:40px;width:100%;max-width:400px;
+}
+.login-logo{font-size:1.1rem;font-weight:800;margin-bottom:6px;
+  background:linear-gradient(135deg,#fff 30%,var(--brand2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.login-sub{font-size:0.85rem;color:var(--muted2);margin-bottom:28px;}
+.form-error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);
+  color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:0.83rem;margin-bottom:14px;}
+
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:240px 1fr;min-height:100vh;}
+@media(max-width:800px){.shell{grid-template-columns:1fr;}}
+.sidebar{
+  background:var(--surface);border-right:1px solid var(--border);
+  padding:24px 16px;position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.sidebar-logo{font-size:1rem;font-weight:800;padding:0 8px;margin-bottom:28px;
+  background:linear-gradient(135deg,#fff 30%,var(--brand2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-radius:10px;font-size:0.88rem;font-weight:500;
+  color:var(--muted2);cursor:pointer;margin-bottom:4px;transition:all 0.15s;
+}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:rgba(124,58,237,0.15);color:var(--brand2);}
+.nav-icon{font-size:1rem;width:20px;text-align:center;}
+.sidebar-bottom{margin-top:auto;padding-top:20px;border-top:1px solid var(--border);}
+
+/* MAIN */
+.main{padding:32px 36px;overflow-y:auto;}
+@media(max-width:640px){.main{padding:20px 16px;}}
+.page-title{font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:4px;}
+.page-sub{font-size:0.85rem;color:var(--muted2);margin-bottom:28px;}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px;}
+.card-title{font-size:1rem;font-weight:700;margin-bottom:16px;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+.stat-val{font-size:1.8rem;font-weight:800;letter-spacing:-1px;}
+.stat-label{font-size:0.78rem;color:var(--muted2);margin-top:4px;}
+.stat-val.green{color:var(--green);}
+.stat-val.amber{color:var(--amber);}
+.stat-val.purple{background:linear-gradient(135deg,var(--brand2),#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* FORM */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:0.78rem;font-weight:600;color:var(--muted2);margin-bottom:7px;letter-spacing:0.02em;}
+.field input,.field textarea,.field select{
+  width:100%;padding:11px 14px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);
+  font-family:'Inter',sans-serif;font-size:0.9rem;transition:border-color 0.2s;
+}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--brand);}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted);}
+.field textarea{resize:vertical;}
+.field select option{background:var(--surface2);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* BUTTONS */
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:10px 20px;border-radius:8px;
+  font-family:'Inter',sans-serif;font-weight:600;font-size:0.88rem;
+  border:none;cursor:pointer;transition:all 0.2s;
+}
+.btn-primary{background:var(--brand);color:#fff;}
+.btn-primary:hover{background:#6d28d9;}
+.btn-ghost{background:transparent;color:var(--muted2);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:var(--border2);}
+.btn-green{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);}
+.btn-green:hover{background:rgba(16,185,129,0.25);}
+.btn-amber{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3);}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+.btn-full{width:100%;}
+.btn-sm{padding:7px 14px;font-size:0.8rem;}
+
+/* EVENTS LIST */
+.event-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:12px;margin-bottom:10px;
+  cursor:pointer;transition:all 0.15s;flex-wrap:wrap;gap:10px;
+}
+.event-row:hover{border-color:var(--border2);}
+.event-row.selected{border-color:var(--brand);background:rgba(124,58,237,0.08);}
+.event-row-title{font-weight:600;font-size:0.92rem;}
+.event-row-meta{font-size:0.78rem;color:var(--muted2);margin-top:3px;}
+.event-row-right{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.pill{font-size:0.72rem;font-weight:600;padding:3px 10px;border-radius:100px;}
+.pill-open{background:rgba(16,185,129,0.12);color:var(--green);}
+.pill-closed{background:rgba(107,114,128,0.12);color:var(--muted2);}
+.pill-results{background:rgba(245,158,11,0.12);color:var(--amber);}
+
+/* REGISTRATIONS TABLE */
+.reg-table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+.reg-table th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.05em;}
+.reg-table td{padding:12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.reg-table tr:last-child td{border-bottom:none;}
+.reg-table tr:hover td{background:rgba(255,255,255,0.02);}
+.phone-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);padding:4px 10px;border-radius:6px;font-family:monospace;font-size:0.85rem;}
+.winner-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.winner-controls input{width:100px;padding:7px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:0.82rem;}
+.winner-controls input:focus{outline:none;border-color:var(--brand);}
+.winner-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.25);padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:600;}
+.winner-badge.paid{background:rgba(16,185,129,0.1);color:var(--green);border-color:rgba(16,185,129,0.25);}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:48px;color:var(--muted);}
+.empty-icon{font-size:2.5rem;margin-bottom:12px;}
+
+/* PAGE SECTIONS */
+.page-section{display:none;}
+.page-section.active{display:block;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginWrap" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">OwnIntelligence</div>
+    <div class="login-sub">Admin panel — only for organizers</div>
+    <div id="loginErr" class="form-error hidden"></div>
+    <div class="field"><label>Email</label><input type="email" id="aEmail" placeholder="admin@email.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="aPass" placeholder="••••••••"></div>
+    <button class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()">Log in to Admin</button>
+  </div>
+</div>
+
+<!-- ADMIN SHELL -->
+<div id="adminShell" class="shell hidden">
+  <aside class="sidebar">
+    <div class="sidebar-logo">OwnIntelligence</div>
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('create')" id="nav-create">
+      <span class="nav-icon">➕</span> Create Event
+    </div>
+    <div class="nav-item" onclick="showPage('events')" id="nav-events">
+      <span class="nav-icon">🎯</span> Manage Events
+    </div>
+    <div class="sidebar-bottom">
+      <div class="nav-item" onclick="auth.signOut()">
+        <span class="nav-icon">🚪</span> Log out
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page-section active" id="page-dashboard">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub">Overview of your competition platform.</div>
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-val purple" id="statEvents">—</div><div class="stat-label">Total events</div></div>
+        <div class="stat-card"><div class="stat-val amber" id="statRegistrations">—</div><div class="stat-label">Total registrations</div></div>
+        <div class="stat-card"><div class="stat-val green" id="statPrize">—</div><div class="stat-label">Total prizes given</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Recent Events</div>
+        <div id="dashEventsList"></div>
+      </div>
+    </div>
+
+    <!-- CREATE EVENT -->
+    <div class="page-section" id="page-create">
+      <div class="page-title">Create New Event</div>
+      <div class="page-sub">Fill in the details to publish a new competition.</div>
+      <div class="card">
+        <div class="field"><label>Event title *</label><input type="text" id="eTitle" placeholder="e.g. National Quiz Challenge 2026"></div>
+        <div class="field"><label>Description *</label><textarea id="eDesc" rows="3" placeholder="What is this event about? Who can join?"></textarea></div>
+        <div class="row2">
+          <div class="field"><label>Category</label>
+            <select id="eCategory">
+              <option>Quiz</option><option>Hackathon</option><option>Coding Challenge</option>
+              <option>Essay Writing</option><option>GK Competition</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Status</label>
+            <select id="eStatus"><option value="open">Open for registration</option><option value="closed">Closed</option></select>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Entry fee (₹) *</label><input type="number" id="eEntryFee" placeholder="e.g. 99"></div>
+          <div class="field"><label>Total prize pool (₹) *</label><input type="number" id="ePrize" placeholder="e.g. 5000"></div>
+        </div>
+        <div class="field"><label>Number of winners *</label><input type="number" id="eWinners" placeholder="e.g. 3" value="1"></div>
+        <div class="field"><label>Prize breakdown (optional)</label>
+          <input type="text" id="ePrizeBreakdown" placeholder="e.g. 1st: ₹3000, 2nd: ₹1500, 3rd: ₹500">
+        </div>
+        <div class="field"><label>Event date / deadline (optional)</label><input type="text" id="eDate" placeholder="e.g. 15 August 2026"></div>
+        <button class="btn btn-primary" id="createBtn" onclick="createEvent()">Publish Event</button>
+      </div>
+    </div>
+
+    <!-- MANAGE EVENTS -->
+    <div class="page-section" id="page-events">
+      <div class="page-title">Manage Events</div>
+      <div class="page-sub">Click on an event to see registrations and announce winners.</div>
+      <div id="eventsList"></div>
+      <div id="registrationsPanel" class="hidden">
+        <div class="card" style="margin-top:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+            <div>
+              <div class="card-title" id="regPanelTitle" style="margin-bottom:4px;"></div>
+              <div id="regPanelMeta" style="font-size:0.8rem;color:var(--muted2);"></div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-ghost btn-sm" id="toggleStatusBtn" onclick="toggleEventStatus()"></button>
+              <button class="btn btn-amber btn-sm" onclick="publishResults()" id="publishBtn">Announce Results</button>
+            </div>
+          </div>
+          <div id="regTableWrap"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBwf_05vXuD7ZyYk9Inb5tCGFg9beiItIk",
+  authDomain: "aquapure-b9aa1.firebaseapp.com",
+  projectId: "aquapure-b9aa1",
+  storageBucket: "aquapure-b9aa1.firebasestorage.app",
+  messagingSenderId: "669878567043",
+  appId: "1:669878567043:web:00410b3d4c4d7f4a661bb6"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ── Set this to YOUR Firebase UID after first login ──
+const ADMIN_UID = "esXG7GlhGlRSH4vU8gRp0g5tplF3";
+
+let selectedEventId = null;
+let selectedEventData = null;
+let allRegistrations = [];
+
+// ── AUTH ──
+auth.onAuthStateChanged(user => {
+  if (user && (ADMIN_UID === "PASTE_YOUR_ADMIN_UID_HERE" || user.uid === ADMIN_UID)) {
+    document.getElementById('loginWrap').classList.add('hidden');
+    document.getElementById('adminShell').classList.remove('hidden');
+    loadDashboard();
+    loadEventsList();
+  } else {
+    document.getElementById('loginWrap').classList.remove('hidden');
+    document.getElementById('adminShell').classList.add('hidden');
+    if (user) auth.signOut();
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('aEmail').value.trim();
+  const pass = document.getElementById('aPass').value;
+  const errEl = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  errEl.classList.add('hidden');
+  btn.disabled = true; btn.textContent = 'Logging in…';
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    errEl.textContent = 'Invalid email or password.';
+    errEl.classList.remove('hidden');
+  }
+  btn.disabled = false; btn.textContent = 'Log in to Admin';
+}
+
+// ── NAVIGATION ──
+function showPage(page) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'events') loadEventsList();
+  if (page === 'dashboard') loadDashboard();
+}
+
+// ── DASHBOARD ──
+async function loadDashboard() {
+  try {
+    const evSnap = await db.collection('events').get();
+    let totalReg = 0, totalPrize = 0;
+    evSnap.forEach(d => {
+      totalReg += d.data().participantCount || 0;
+      totalPrize += d.data().totalPrizeGiven || 0;
+    });
+    document.getElementById('statEvents').textContent = evSnap.size;
+    document.getElementById('statRegistrations').textContent = totalReg;
+    document.getElementById('statPrize').textContent = '₹' + totalPrize.toLocaleString();
+
+    const listEl = document.getElementById('dashEventsList');
+    if (evSnap.empty) { listEl.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div>No events yet. Create your first one!</div>'; return; }
+    listEl.innerHTML = '';
+    evSnap.docs.sort((a,b) => (b.data().createdAt?.seconds||0)-(a.data().createdAt?.seconds||0)).slice(0,5).forEach(d => {
+      const ev = d.data();
+      const el = document.createElement('div');
+      el.className = 'event-row';
+      el.innerHTML = `
+        <div>
+          <div class="event-row-title">${ev.title}</div>
+          <div class="event-row-meta">${ev.participantCount||0} registrations · ₹${(ev.entryFee||0).toLocaleString()} entry · ₹${(ev.prizeMoney||0).toLocaleString()} prize</div>
+        </div>
+        <div class="event-row-right">
+          <span class="pill ${ev.status==='open'?'pill-open':ev.resultsOut?'pill-results':'pill-closed'}">${ev.status==='open'?'Open':ev.resultsOut?'Results out':'Closed'}</span>
+        </div>`;
+      el.onclick = () => { showPage('events'); setTimeout(()=>openEvent(d.id, ev), 100); };
+      listEl.appendChild(el);
+    });
+  } catch(e) {}
+}
+
+// ── CREATE EVENT ──
+async function createEvent() {
+  const title = document.getElementById('eTitle').value.trim();
+  const desc = document.getElementById('eDesc').value.trim();
+  const entryFee = Number(document.getElementById('eEntryFee').value) || 0;
+  const prizeMoney = Number(document.getElementById('ePrize').value) || 0;
+  const winnerCount = Number(document.getElementById('eWinners').value) || 1;
+  const btn = document.getElementById('createBtn');
+
+  if (!title || !desc || !entryFee || !prizeMoney) {
+    alert('Please fill all required fields (title, description, entry fee, prize pool).'); return;
+  }
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    await db.collection('events').add({
+      title, description: desc,
+      category: document.getElementById('eCategory').value,
+      status: document.getElementById('eStatus').value,
+      entryFee, prizeMoney, winnerCount,
+      prizeBreakdown: document.getElementById('ePrizeBreakdown').value.trim(),
+      eventDate: document.getElementById('eDate').value.trim(),
+      participantCount: 0, totalPrizeGiven: 0, resultsOut: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    ['eTitle','eDesc','eEntryFee','ePrize','ePrizeBreakdown','eDate'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('eWinners').value = '1';
+    alert('✅ Event published successfully!');
+    loadDashboard();
+  } catch(e) { alert('Error creating event. Try again.'); }
+  btn.disabled = false; btn.textContent = 'Publish Event';
+}
+
+// ── EVENTS LIST ──
+async function loadEventsList() {
+  const listEl = document.getElementById('eventsList');
+  const snap = await db.collection('events').orderBy('createdAt','desc').get();
+  if (snap.empty) {
+    listEl.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div>No events yet. Create one!</div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  snap.docs.forEach(d => {
+    const ev = d.data();
+    const el = document.createElement('div');
+    el.className = 'event-row' + (selectedEventId === d.id ? ' selected' : '');
+    el.id = 'evrow-' + d.id;
+    el.innerHTML = `
+      <div>
+        <div class="event-row-title">${ev.title}</div>
+        <div class="event-row-meta">${ev.category} · ${ev.participantCount||0} registered · ₹${(ev.entryFee||0).toLocaleString()} entry · ₹${(ev.prizeMoney||0).toLocaleString()} prize</div>
+      </div>
+      <div class="event-row-right">
+        <span class="pill ${ev.status==='open'?'pill-open':ev.resultsOut?'pill-results':'pill-closed'}">${ev.status==='open'?'● Open':ev.resultsOut?'Results out':'● Closed'}</span>
+        <button class="btn btn-ghost btn-sm">View →</button>
+      </div>`;
+    el.onclick = () => openEvent(d.id, ev);
+    listEl.appendChild(el);
+  });
+}
+
+async function openEvent(evId, ev) {
+  selectedEventId = evId;
+  selectedEventData = ev;
+  document.querySelectorAll('.event-row').forEach(r => r.classList.remove('selected'));
+  const row = document.getElementById('evrow-' + evId);
+  if (row) row.classList.add('selected');
+
+  document.getElementById('regPanelTitle').textContent = ev.title;
+  document.getElementById('regPanelMeta').textContent = `${ev.category} · ₹${(ev.entryFee||0).toLocaleString()} entry · ${ev.winnerCount||1} winner(s) · Prize: ₹${(ev.prizeMoney||0).toLocaleString()}${ev.prizeBreakdown ? ' ('+ev.prizeBreakdown+')' : ''}`;
+  document.getElementById('toggleStatusBtn').textContent = ev.status === 'open' ? 'Close Registration' : 'Reopen Registration';
+  document.getElementById('publishBtn').style.display = ev.resultsOut ? 'none' : '';
+  document.getElementById('registrationsPanel').classList.remove('hidden');
+  document.getElementById('registrationsPanel').scrollIntoView({behavior:'smooth'});
+  await loadRegistrations(evId);
+}
+
+async function loadRegistrations(evId) {
+  const wrap = document.getElementById('regTableWrap');
+  wrap.innerHTML = '<div style="color:var(--muted);padding:20px;">Loading…</div>';
+  const snap = await db.collection('events').doc(evId).collection('registrations').get();
+
+  if (snap.empty) {
+    wrap.innerHTML = '<div class="empty"><div class="empty-icon">👥</div>No registrations yet.</div>';
+    return;
+  }
+
+  allRegistrations = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  let html = `<div style="margin-bottom:12px;font-size:0.82rem;color:var(--muted2);">
+    ${allRegistrations.length} registration(s) · Phone numbers shown for prize transfer
+  </div>
+  <div style="overflow-x:auto;">
+  <table class="reg-table">
+    <thead><tr>
+      <th>#</th><th>Name</th><th>Email</th>
+      <th>📱 Phone (for prize)</th>
+      <th>Status</th><th>Action</th>
+    </tr></thead><tbody>`;
+
+  allRegistrations.forEach((r, i) => {
+    if (r.isWinner) {
+      html += `<tr>
+        <td>${i+1}</td><td><strong>${r.name}</strong></td><td>${r.email}</td>
+        <td><span class="phone-chip">📱 ${r.phone}</span></td>
+        <td><span class="winner-badge paid">🏆 ${r.winnerLabel||'Winner'} — ₹${(r.prizeAmount||0).toLocaleString()}</span></td>
+        <td style="color:var(--green);font-size:0.8rem;">Prize: send to ${r.phone}</td>
+      </tr>`;
+    } else {
+      html += `<tr>
+        <td>${i+1}</td><td>${r.name}</td><td>${r.email}</td>
+        <td><span class="phone-chip">📱 ${r.phone}</span></td>
+        <td><span style="color:var(--muted2);font-size:0.8rem;">Registered</span></td>
+        <td>
+          ${selectedEventData.resultsOut ? '<span style="color:var(--muted);font-size:0.8rem;">Not a winner</span>' : `
+          <div class="winner-controls">
+            <input type="text" placeholder="Label e.g. 1st" id="wlabel-${r.id}">
+            <input type="number" placeholder="₹ Prize" id="wprize-${r.id}">
+            <button class="btn btn-amber btn-sm" onclick="markWinner('${r.id}')">Mark Winner</button>
+          </div>`}
+        </td>
+      </tr>`;
+    }
+  });
+
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+}
+
+async function markWinner(uid) {
+  const label = document.getElementById('wlabel-' + uid)?.value.trim() || 'Winner';
+  const prize = Number(document.getElementById('wprize-' + uid)?.value) || 0;
+  if (!prize) { alert('Please enter a prize amount.'); return; }
+  if (!confirm(`Mark this person as "${label}" with ₹${prize} prize?`)) return;
+
+  await db.collection('events').doc(selectedEventId).collection('registrations').doc(uid).update({
+    isWinner: true, winnerLabel: label, prizeAmount: prize
+  });
+  await db.collection('events').doc(selectedEventId).update({
+    totalPrizeGiven: firebase.firestore.FieldValue.increment(prize),
+    resultsOut: true
+  });
+  selectedEventData = { ...selectedEventData, resultsOut: true };
+  document.getElementById('publishBtn').style.display = 'none';
+  await loadRegistrations(selectedEventId);
+  alert(`✅ Marked as winner!\n\nSend ₹${prize} to the phone number shown in the table.`);
+}
+
+async function publishResults() {
+  const winners = allRegistrations.filter(r => r.isWinner);
+  if (winners.length === 0) { alert('Mark at least one winner before publishing results.'); return; }
+  if (!confirm('Publish results? Students will see the winner announcement on the website.')) return;
+  await db.collection('events').doc(selectedEventId).update({ resultsOut: true });
+  selectedEventData = { ...selectedEventData, resultsOut: true };
+  document.getElementById('publishBtn').style.display = 'none';
+  alert('✅ Results published! Students can now see the winners on the website.');
+}
+
+async function toggleEventStatus() {
+  const newStatus = selectedEventData.status === 'open' ? 'closed' : 'open';
+  await db.collection('events').doc(selectedEventId).update({ status: newStatus });
+  selectedEventData = { ...selectedEventData, status: newStatus };
+  document.getElementById('toggleStatusBtn').textContent = newStatus === 'open' ? 'Close Registration' : 'Reopen Registration';
+  await loadEventsList();
+  alert(`Event is now ${newStatus === 'open' ? 'open for registration' : 'closed'}.`);
+}
+</script>
+</body>
+</html>
